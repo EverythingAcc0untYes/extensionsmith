@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Scratch Extension Creator</title>
+
+<style>
+
+body{
+background:#1e1e1e;
+color:white;
+font-family:sans-serif;
+margin:0;
+display:flex;
+height:100vh;
+}
+
+#left{
+width:300px;
+background:#2a2a2a;
+padding:15px;
+overflow:auto;
+}
+
+#right{
+flex:1;
+padding:20px;
+overflow:auto;
+}
+
+.block{
+background:#4c97ff;
+padding:10px;
+margin:10px 0;
+border-radius:6px;
+}
+
+input,select{
+width:100%;
+margin-bottom:6px;
+}
+
+button{
+background:#ff8c1a;
+border:none;
+padding:8px;
+color:white;
+cursor:pointer;
+margin-bottom:6px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="left">
+
+<h3>Extension</h3>
+
+Name
+<input id="name" value="My Extension">
+
+ID
+<input id="id" value="myext">
+
+Color
+<input id="color" type="color" value="#4c97ff">
+
+<hr>
+
+<h3>Menus</h3>
+
+<button onclick="addMenu()">Add Dropdown</button>
+
+<div id="menus"></div>
+
+<hr>
+
+<h3>Blocks</h3>
+
+<button onclick="addBlock()">Add Block</button>
+
+<div id="blockList"></div>
+
+<hr>
+
+<button onclick="exportJS()">Download Extension</button>
+
+</div>
+
+<div id="right">
+
+<h2>Blocks</h2>
+
+<div id="blocks"></div>
+
+</div>
+
+<script>
+
+let blocks=[]
+let menus=[]
+
+function addMenu(){
+
+menus.push({
+name:"menu"+menus.length,
+items:"item1,item2"
+})
+
+renderMenus()
+
+}
+
+function renderMenus(){
+
+let area=document.getElementById("menus")
+area.innerHTML=""
+
+menus.forEach((m,i)=>{
+
+area.innerHTML+=`
+<div class="block">
+
+Menu Name
+<input value="${m.name}" onchange="menus[${i}].name=this.value">
+
+Items (comma separated)
+<input value="${m.items}" onchange="menus[${i}].items=this.value">
+
+</div>
+`
+
+})
+
+}
+
+function addBlock(){
+
+blocks.push({
+text:"my block [VALUE]",
+type:"command",
+args:[]
+})
+
+renderBlocks()
+
+}
+
+function addArg(blockIndex){
+
+blocks[blockIndex].args.push({
+name:"VALUE",
+type:"string"
+})
+
+renderBlocks()
+
+}
+
+function renderBlocks(){
+
+let area=document.getElementById("blocks")
+area.innerHTML=""
+
+blocks.forEach((b,i)=>{
+
+let argsHTML=""
+
+b.args.forEach((a,j)=>{
+
+argsHTML+=`
+Arg Name
+<input value="${a.name}" onchange="blocks[${i}].args[${j}].name=this.value">
+
+Type
+<select onchange="blocks[${i}].args[${j}].type=this.value">
+<option ${a.type=="string"?"selected":""}>string</option>
+<option ${a.type=="number"?"selected":""}>number</option>
+<option ${a.type=="boolean"?"selected":""}>boolean</option>
+<option ${a.type=="menu"?"selected":""}>menu</option>
+</select>
+`
+})
+
+area.innerHTML+=`
+
+<div class="block">
+
+Block Text
+<input value="${b.text}" onchange="blocks[${i}].text=this.value">
+
+Type
+<select onchange="blocks[${i}].type=this.value">
+<option ${b.type=="command"?"selected":""}>command</option>
+<option ${b.type=="reporter"?"selected":""}>reporter</option>
+<option ${b.type=="boolean"?"selected":""}>boolean</option>
+</select>
+
+<button onclick="addArg(${i})">Add Input</button>
+
+${argsHTML}
+
+<button onclick="generateAI(${i})">Generate Function</button>
+
+</div>
+`
+
+})
+
+}
+
+function generateAI(i){
+
+alert("AI function generator placeholder.\nYou could connect this to an AI API.")
+
+}
+
+function exportJS(){
+
+let name=document.getElementById("name").value
+let id=document.getElementById("id").value
+let color=document.getElementById("color").value
+
+let blockJSON=""
+let funcs=""
+
+blocks.forEach((b,index)=>{
+
+let opcode="block"+index
+
+let argsJSON=""
+
+b.args.forEach(a=>{
+
+argsJSON+=`
+${a.name}:{
+type:Scratch.ArgumentType.${a.type.toUpperCase()}
+},
+`
+
+})
+
+blockJSON+=`
+{
+opcode:"${opcode}",
+blockType:Scratch.BlockType.${b.type.toUpperCase()},
+text:"${b.text}",
+arguments:{${argsJSON}}
+},
+`
+
+funcs+=`
+${opcode}(args){
+console.log(args)
+}
+`
+
+})
+
+let menuJSON=""
+
+menus.forEach(m=>{
+
+menuJSON+=`
+${m.name}:{items:[${m.items.split(",").map(i=>`"${i}"`).join(",")}]},
+`
+
+})
+
+let code=`(function(Scratch){
+
+if(!Scratch.extensions.unsandboxed){
+throw new Error("Run unsandboxed")
+}
+
+class Extension{
+
+getInfo(){
+return{
+id:"${id}",
+name:"${name}",
+color1:"${color}",
+
+blocks:[
+${blockJSON}
+],
+
+menus:{
+${menuJSON}
+}
+
+}
+}
+
+${funcs}
+
+}
+
+Scratch.extensions.register(new Extension())
+
+})(Scratch);`
+
+downloadFile(code,"extension.js")
+
+}
+
+function downloadFile(content,file){
+
+let blob=new Blob([content],{type:"text/javascript"})
+let url=URL.createObjectURL(blob)
+
+let a=document.createElement("a")
+a.href=url
+a.download=file
+document.body.appendChild(a)
+
+a.click()
+
+document.body.removeChild(a)
+
+URL.revokeObjectURL(url)
+
+}
+
+</script>
+
+</body>
+</html>
